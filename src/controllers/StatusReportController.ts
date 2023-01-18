@@ -5,7 +5,6 @@ import OicqClient from '../client/OicqClient';
 export default class {
   constructor(private readonly instance: Instance,
               private readonly tgBot: Telegram,
-              private readonly tgUser: Telegram,
               private readonly qqBot: OicqClient) {
     setInterval(() => this.report(), 1000 * 60);
     this.report();
@@ -16,9 +15,6 @@ export default class {
     let offline = [] as string[];
     if (!this.tgBot?.isOnline) {
       offline.push('tgBot');
-    }
-    if (!this.tgUser?.isOnline) {
-      offline.push('tgUser');
     }
     if (!this.qqBot?.isOnline()) {
       offline.push('qqBot');
