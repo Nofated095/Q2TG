@@ -100,6 +100,7 @@ export default class SetupController {
     }
     else {
       await this.setupService.informOwner(`UserBot 创建被跳过`);
+    }
 //      try {
 //        const phoneNumber = await this.setupService.waitForOwnerInput('创建 Telegram UserBot，请输入你的手机号码（需要带国家区号，例如：+86）');
 //        await this.setupService.informOwner('正在登录，请稍候…');
