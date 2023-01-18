@@ -36,7 +36,6 @@ export default class Instance {
   private readonly log: Logger;
 
   private tgBot: Telegram;
-  private tgUser: Telegram;
   private oicq: OicqClient;
 
   private _ownerChat: TelegramChat;
@@ -111,9 +110,8 @@ export default class Instance {
         this._ownerChat = await this.tgBot.getChat(this.owner);
       }
       else {
-        this.log.debug('正在登录 TG UserBot');
-        this.tgUser = await Telegram.connect(this._userSessionId);
-        this.log.info('TG UserBot 登录完成');
+        this.log.debug('正在登录 TG UserBot /// skip by Nofated095');
+        this.log.info('TG UserBot 登录完成  /// skip by Nofated095');
         this._ownerChat = await this.tgBot.getChat(this.owner);
         this.log.debug('正在登录 OICQ');
         this.oicq = await OicqClient.create({
@@ -140,7 +138,7 @@ export default class Instance {
         });
         this.log.info('OICQ 登录完成');
       }
-      this.statusReportController = new StatusReportController(this, this.tgBot, this.tgUser, this.oicq);
+      this.statusReportController = new StatusReportController(this, this.tgBot, this.oicq);
       this.forwardPairs = await ForwardPairs.load(this.id, this.oicq, this.tgBot);
       this.setupCommands()
         .then(() => this.log.info('命令设置成功'))
@@ -150,13 +148,13 @@ export default class Instance {
       }
       this.oicqErrorNotifyController = new OicqErrorNotifyController(this, this.oicq);
       this.requestController = new RequestController(this, this.tgBot, this.oicq);
-      this.configController = new ConfigController(this, this.tgBot, this.tgUser, this.oicq);
-      this.deleteMessageController = new DeleteMessageController(this, this.tgBot, this.tgUser, this.oicq);
-      this.inChatCommandsController = new InChatCommandsController(this, this.tgBot, this.tgUser, this.oicq);
+      this.configController = new ConfigController(this, this.tgBot, this.oicq);
+      this.deleteMessageController = new DeleteMessageController(this, this.tgBot, this.oicq);
+      this.inChatCommandsController = new InChatCommandsController(this, this.tgBot, this.oicq);
       if (this.workMode === 'group') {
         this.hugController = new HugController(this, this.tgBot, this.oicq);
       }
-      this.forwardController = new ForwardController(this, this.tgBot, this.tgUser, this.oicq);
+      this.forwardController = new ForwardController(this, this.tgBot, this.oicq);
       if (this.workMode === 'group') {
         // 希望那个 /q 也被转发
         this.quotLyController = new QuotLyController(this, this.tgBot, this.oicq);
@@ -241,10 +239,6 @@ export default class Instance {
 
   get botMe() {
     return this.tgBot.me;
-  }
-
-  get userMe() {
-    return this.tgUser.me;
   }
 
   get ownerChat() {
