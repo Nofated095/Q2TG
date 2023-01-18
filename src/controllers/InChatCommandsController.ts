@@ -13,7 +13,6 @@ export default class InChatCommandsController {
 
   constructor(
     private readonly instance: Instance,
-    private readonly tgUser: Telegram,
     private readonly oicq: OicqClient,
   ) {
     this.log = getLogger(`InChatCommandsController - ${instance.id}`);
