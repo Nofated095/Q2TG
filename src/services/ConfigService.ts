@@ -21,7 +21,6 @@ export default class ConfigService {
 
   constructor(private readonly instance: Instance,
               private readonly tgBot: Telegram,
-              private readonly tgUser: Telegram,
               private readonly oicq: OicqClient) {
     this.log = getLogger(`ConfigService - ${instance.id}`);
     this.owner = tgBot.getChat(this.instance.owner);
