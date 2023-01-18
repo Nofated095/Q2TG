@@ -24,7 +24,7 @@ export default class ConfigController {
     this.log = getLogger(`ConfigController - ${instance.id}`);
     this.configService = new ConfigService(this.instance, tgBot, oicq);
     tgBot.addNewMessageEventHandler(this.handleMessage);
-    tgBot.addNewServiceMessageEventHandler(this.handleServiceMessage);
+//    tgBot.addNewServiceMessageEventHandler(this.handleServiceMessage);
     tgBot.addChannelParticipantEventHandler(this.handleChannelParticipant);
     oicq.addNewMessageEventHandler(this.handleQqMessage);
     oicq.on('notice.group.decrease', this.handleGroupDecrease);
