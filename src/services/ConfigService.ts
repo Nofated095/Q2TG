@@ -218,29 +218,4 @@ export default class ConfigService {
     return message;
   }
 
-  public async createLinkGroup(qqRoomId: number, tgChatId: number) {
-    if (this.instance.workMode === 'group') {
-      try {
-        const qGroup = this.oicq.getChat(qqRoomId) as Group;
-        const tgChat = await this.tgBot.getChat(tgChatId);
-        await this.instance.forwardPairs.add(qGroup, tgChat);
-        await tgChat.sendMessage(`QQ群：${qGroup.name} (<code>${qGroup.group_id}</code>)已与 ` +
-          `Telegram 群 ${(tgChat.entity as Api.Channel).title} (<code>${tgChatId}</code>)关联`);
-        if (!(tgChat.entity instanceof Api.Channel)) {
-          // TODO 添加一个转换为超级群组的方法链接
-          await tgChat.sendMessage({
-            message: '请注意，这个群不是超级群组。一些功能，比如说同步撤回，可能会工作不正常。建议将此群组转换为超级群组',
-            linkPreview: false,
-          });
-        }
-      }
-      catch (e) {
-        this.log.error(e);
-        await (await this.owner).sendMessage(`错误：<code>${e}</code>`);
-      }
-    }
-    else {
-      const chat = await tgChat = await this.tgBot.getChat(tgChatId);
-    }
-  }
 }
