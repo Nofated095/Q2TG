@@ -13,7 +13,6 @@ export default class InChatCommandsController {
 
   constructor(
     private readonly instance: Instance,
-    private readonly tgBot: Telegram,
     private readonly tgUser: Telegram,
     private readonly oicq: OicqClient,
   ) {
@@ -87,7 +86,7 @@ export default class InChatCommandsController {
         return true;
       case '/recover':
         if (!message.senderId.eq(this.instance.owner)) return true;
-        const helper = new RecoverMessageHelper(this.instance, this.tgBot, this.tgUser, this.oicq, pair, message);
+        const helper = new RecoverMessageHelper(this.instance, this.tgBot, this.oicq, pair, message);
         helper.startRecover().then(() => this.log.info('恢复完成'));
         return true;
     }
