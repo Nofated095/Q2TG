@@ -20,10 +20,9 @@ export default class ConfigController {
 
   constructor(private readonly instance: Instance,
               private readonly tgBot: Telegram,
-              private readonly tgUser: Telegram,
               private readonly oicq: OicqClient) {
     this.log = getLogger(`ConfigController - ${instance.id}`);
-    this.configService = new ConfigService(this.instance, tgBot, tgUser, oicq);
+    this.configService = new ConfigService(this.instance, tgBot, oicq);
     tgBot.addNewMessageEventHandler(this.handleMessage);
     tgBot.addNewServiceMessageEventHandler(this.handleServiceMessage);
     tgBot.addChannelParticipantEventHandler(this.handleChannelParticipant);
@@ -83,26 +82,26 @@ export default class ConfigController {
     }
   };
 
-  private handleServiceMessage = async (message: Api.MessageService) => {
-    // 用于检测群升级为超级群的情况
-    if (message.action instanceof Api.MessageActionChatMigrateTo) {
-      const pair = this.instance.forwardPairs.find((message.peerId as Api.PeerChat).chatId);
-      if (!pair) return;
-      // 会自动写入数据库
-      pair.tg = await this.tgBot.getChat(message.action.channelId);
-      // 升级之后 bot 的管理权限可能没了，需要修复一下
-      if (this.instance.workMode === 'personal') {
-        const chatForUser = await this.tgUser.getChat(message.action.channelId);
-        await chatForUser.setAdmin(this.tgBot.me.username);
-      }
-      else {
-        await pair.tg.sendMessage({
-          message: '本群已升级为超级群，可能需要重新设置一下管理员权限',
-          silent: true,
-        });
-      }
-    }
-  };
+//  private handleServiceMessage = async (message: Api.MessageService) => {
+//    // 用于检测群升级为超级群的情况
+//    if (message.action instanceof Api.MessageActionChatMigrateTo) {
+//      const pair = this.instance.forwardPairs.find((message.peerId as Api.PeerChat).chatId);
+//      if (!pair) return;
+//      // 会自动写入数据库
+//      pair.tg = await this.tgBot.getChat(message.action.channelId);
+//      // 升级之后 bot 的管理权限可能没了，需要修复一下
+//      if (this.instance.workMode === 'personal') {
+//        const chatForUser = await this.tgUser.getChat(message.action.channelId);
+//        await chatForUser.setAdmin(this.tgBot.me.username);
+//      }
+//      else {
+//        await pair.tg.sendMessage({
+//          message: '本群已升级为超级群，可能需要重新设置一下管理员权限',
+//          silent: true,
+//        });
+//      }
+//    }
+//  };
 
   private handleQqMessage = async (message: GroupMessageEvent | PrivateMessageEvent) => {
     if (message.message_type !== 'private' || this.instance.workMode === 'group') return false;
