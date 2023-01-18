@@ -25,7 +25,6 @@ export default class {
 
   constructor(private readonly instance: Instance,
               private readonly tgBot: Telegram,
-              private readonly tgUser: Telegram,
               private readonly oicq: OicqClient,
               private readonly pair: Pair,
               private readonly requestMessage: Api.Message) {
@@ -242,7 +241,6 @@ export default class {
   }
 
   private async importMessagesAndMedia() {
-    const tgChatForUser = await this.tgUser.getChat(this.pair.tgId);
     const txtBuffer = Buffer.from(this.importTxt, 'utf-8');
     const importSession = await tgChatForUser.startImportSession(
       new CustomFile('record.txt', txtBuffer.length, '', txtBuffer),
