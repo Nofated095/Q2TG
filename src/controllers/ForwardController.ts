@@ -25,7 +25,6 @@ export default class ForwardController {
   constructor(
     private readonly instance: Instance,
     private readonly tgBot: Telegram,
-    private readonly tgUser: Telegram,
     private readonly oicq: OicqClient,
   ) {
     this.log = getLogger(`ForwardController - ${instance.id}`);
