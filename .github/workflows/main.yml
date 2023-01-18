@@ -20,5 +20,5 @@ jobs:
 
       - name: Build and push
         run: |
-          nix --extra-experimental-features nix-command --extra-experimental-features flakes run .#docker.copyTo -vL -- --dest-creds=${{ github.repository_owner }}:${{ secrets.GITHUB_TOKEN }} docker://ghcr.io/${GITHUB_REPOSITORY,,}:${{ github.sha }}
-          nix --extra-experimental-features nix-command --extra-experimental-features flakes run .#docker.copyTo -vL -- --dest-creds=${{ github.repository_owner }}:${{ secrets.GITHUB_TOKEN }} docker://ghcr.io/${GITHUB_REPOSITORY,,}:${{ github.ref_name }}
+          nix --extra-experimental-features nix-command --extra-experimental-features flakes run .#docker.copyTo -vL -- --dest-creds=${{ github.repository_owner }}:${{ secrets.PACKAGES_TOKEN }} docker://ghcr.io/${GITHUB_REPOSITORY,,}:${{ github.sha }}
+          nix --extra-experimental-features nix-command --extra-experimental-features flakes run .#docker.copyTo -vL -- --dest-creds=${{ github.repository_owner }}:${{ secrets.PACKAGES_TOKEN }} docker://ghcr.io/${GITHUB_REPOSITORY,,}:${{ github.ref_name }}
