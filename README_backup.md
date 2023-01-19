@@ -1,51 +1,13 @@
-# Q2TG - without User Bot
-QQ 群与 Telegram 群相互转发的 bot，但是去除了 _UserBot_ 模式，再也不用担心杜叔叔瞎几把封号啦！
+# Q2TG
+QQ 群与 Telegram 群相互转发的 bot
 
-## 安装 / 迁移
+## 安装方法
 
-请看 [Wiki](https://github.com/Clansty/Q2TG/wiki/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2)，与上游相同。
+请看 [Wiki](https://github.com/Clansty/Q2TG/wiki/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2)
 
-请注意修改 [`docker-compose.yaml`](https://raw.githubusercontent.com/Nofated095/Q2TG/rainbowcat/docker-compose.yaml)，启动命令 `docker-compose up -d`。
-
-如果你事先部署过上游的 Q2TG 实例，建议通过 `docker stop main_q2tg` 停止服务。你可以直接修改原先的 `docker-compose.yaml` 中 `services - q2tg - image` 为 `ghcr.io/nofated095/q2tg:rainbowcat`
-
-```yaml
-version: "3.8"
-services:
-  # 如果有现成的 Postgresql 实例，可以删除这一小节
-  postgres:
-    image: postgres
-    container_name: postgresql_q2tg
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: db_name
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-    volumes:
-      - ./postgresql:/var/lib/postgresql/data
-  q2tg:
-    image: ghcr.io/nofated095/q2tg:rainbowcat
-    container_name: main_q2tg
-    restart: unless-stopped
-    depends_on:
-      - postgres
-    volumes:
-      - ./data:/app/data
-    environment:
-      - TG_API_ID=
-      - TG_API_HASH=
-      - TG_BOT_TOKEN=
-      - DATABASE_URL=postgres://user:password@postgres/db_name
-      - CRV_API=
-      - CRV_KEY=
-      # 如果需要通过代理联网，那么设置下面两个变量
-      #- PROXY_IP=
-      #- PROXY_PORT=
-```
+v2.x 版本同时需要机器人账号以及登录 Telegram 个人账号，需要自己注册 Telegram API ID，并且还需要配置一些辅助服务。如果没有条件，可以使用 [v1.x](https://github.com/Clansty/Q2TG/tree/main) 版本
 
 ## 支持的消息类型
-
->此分支可能不支持一些文件转发，经过测试转发多条消息是不可用的。
 
 - [x] 文字（双向）
 - [x] 图片（双向）
@@ -84,11 +46,9 @@ services:
 
 群组模式就是 1.x 版本唯一的模式，是给群主使用的。如果群组想要使自己的 QQ 群和 Telegram 群联通起来，就使用这个模式。群组模式只可以给群聊配置转发，并且转发消息时会带上用户在当前平台的发送者名称。
 
->### 个人模式
->
->个人模式适合 QQ 轻度使用者，TG 重度使用者。可以把 QQ 的好友和群聊搬到 Telegram 中。个人模式一定要登录机器人主人自己的 Telegram 账号作为 UserBot。可以自动为 QQ 中的好友和群组创建对应的 Telegram 群组，并同步头像简介等信息。当有没有创建关联的好友发起私聊的时候会自动创建 Telegram 中的对应群组。个人模式在初始化的时候会自动在 Telegram 个人账号中创建一个文件夹来存储所有来自 QQ 的对应群组。消息在从 TG 转发到 QQ 时不会带上发送者昵称，因为默认发送者只有一个人。
->
->不幸的，因为 User Bot 在此分支被残忍的删除，所以虽然没有测试个人模式，但是想想就知道个人模式在没有 User Bot 的情况下是几乎完全废的。
+### 个人模式
+
+个人模式适合 QQ 轻度使用者，TG 重度使用者。可以把 QQ 的好友和群聊搬到 Telegram 中。个人模式一定要登录机器人主人自己的 Telegram 账号作为 UserBot。可以自动为 QQ 中的好友和群组创建对应的 Telegram 群组，并同步头像简介等信息。当有没有创建关联的好友发起私聊的时候会自动创建 Telegram 中的对应群组。个人模式在初始化的时候会自动在 Telegram 个人账号中创建一个文件夹来存储所有来自 QQ 的对应群组。消息在从 TG 转发到 QQ 时不会带上发送者昵称，因为默认发送者只有一个人。
 
 ## 如何撤回消息
 
@@ -98,9 +58,7 @@ services:
 
 - 将消息内容编辑为 `/rm`
 - 回复要撤回的消息，内容为 `/rm`。如果操作者在 TG 群组中没有「删除消息」权限，则只能撤回自己的消息
->- 如果正确配置了个人账号的 User Bot，可以直接删除消息
->
->正确的，但由于此分支删除了 User Bot 功能，所以无法直接删除。
+- 如果正确配置了个人账号的 User Bot，可以直接删除消息
 
 为了使撤回功能正常工作，TG 机器人需要具有「删除消息」权限，QQ 机器人需要为管理员或群主
 
