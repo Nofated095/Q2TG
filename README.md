@@ -1,6 +1,14 @@
 # Q2TG - without User Bot
 QQ 群与 Telegram 群相互转发的 bot，但是去除了 _UserBot_ 模式，再也不用担心杜叔叔瞎几把封号啦！
 
+## 为什么不需要 User Bot
+
+[Clansty/Q2TG#74](https://github.com/Clansty/Q2TG/issues/74) [Clansty/Q2TG#80](https://github.com/Clansty/Q2TG/issues/80) [Clansty/Q2TG#83](https://github.com/Clansty/Q2TG/issues/83)
+
+首先，并不是说 User Bot 不好，~~如果杜叔叔不瞎几把封号那其实无所谓，但我已经被封了两个 `+1` 的 Telegram Account 了。~~ 但是对于那些不需要个人模式，愿意舍弃 Telegram 消息撤回检测，且想体验 `rainbowcat` 的新功能的用户来说，User Bot 的配置略显多余，但 User Bot 在 `rainbowcat` 中被写死在代码中，而不是像 v1 中一样作为可选功能安装，而 `rainbowcat` 中在部署时必须配置 User Bot，于是便有了这个 fork。
+
+需要注意的是，此 fork 中个人模式**几乎不可用**，而群聊模式中需要 User Bot 功能实现的也都无法实现。
+
 ## 安装 / 迁移
 
 请看 [Wiki](https://github.com/Clansty/Q2TG/wiki/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2)，与上游相同。
