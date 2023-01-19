@@ -48,7 +48,7 @@ export default class {
     console.log(this.importTxt, this.filesMap);
     this.currentStatus = 'uploadMessage';
     await this.updateStatusMessage();
-    await this.importMessagesAndMedia();
+    /* await this.importMessagesAndMedia(); */
     this.currentStatus = 'done';
     await this.updateStatusMessage();
   }
@@ -240,7 +240,8 @@ export default class {
     }
   }
 
-  private async importMessagesAndMedia() {
+  /* private async importMessagesAndMedia() {
+    const tgChatForUser = await this.tgUser.getChat(this.pair.tgId);
     const txtBuffer = Buffer.from(this.importTxt, 'utf-8');
     const importSession = await tgChatForUser.startImportSession(
       new CustomFile('record.txt', txtBuffer.length, '', txtBuffer),
@@ -328,7 +329,7 @@ export default class {
     this.currentStatus = 'finishing';
     await this.updateStatusMessage();
     await importSession.finish();
-  }
+  } */
 
   private lastUpdateStatusTime = 0;
 
