@@ -7,7 +7,7 @@ QQ 群与 Telegram 群相互转发的 bot，但是去除了 _UserBot_ 模式，�
 
 首先，并不是说 User Bot 不好，~~如果杜叔叔不瞎几把封号那其实无所谓，但我已经被封了两个 `+1` 的 Telegram Account 了。~~ 但是对于那些不需要个人模式，愿意舍弃 Telegram 消息撤回检测，且想体验 `rainbowcat` 的新功能的用户来说，User Bot 的配置略显多余，但 User Bot 在 `rainbowcat` 中被写死在代码中，而不是像 v1 中一样作为可选功能安装，而 `rainbowcat` 中在部署时必须配置 User Bot，于是便有了这个 fork。
 
-需要注意的是，此 fork 中个人模式**几乎不可用**，而群聊模式中需要 User Bot 功能实现的也都无法实现。
+需要注意的是，此 fork 中个人模式**几乎不可用**，而群聊模式中需要 User Bot 功能实现的功能也都无法使用。
 
 ![image](https://user-images.githubusercontent.com/49985975/213389640-350764fc-8932-4db3-bd83-f4c80df34912.png)
 
@@ -54,8 +54,6 @@ services:
 ```
 
 ## 支持的消息类型
-
->此分支可能不支持一些文件转发，经过测试转发多条消息是不可用的。
 
 - [x] 文字（双向）
 - [x] 图片（双向）
