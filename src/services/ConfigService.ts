@@ -157,6 +157,36 @@ export default class ConfigService {
         await status.edit({ text: '正在创建 Telegram 群…', buttons: Button.clear() });
       }
 
+/*       if (!chat) {
+        // 创建群聊，拿到的是 user 的 chat
+        chat = await this.tgUser.createChat(title, await getAboutText(room, false));
+
+        // 添加机器人
+        status && await status.edit({ text: '正在添加机器人…' });
+        await chat.inviteMember(this.tgBot.me.id);
+      } */
+
+      // 设置管理员
+      status && await status.edit({ text: '正在设置管理员…' });
+      await chat.setAdmin(this.tgBot.me.username);
+
+      // 添加到 Filter
+/*       try {
+        status && await status.edit({ text: '正在将群添加到文件夹…' });
+        const dialogFilters = await this.tgUser.getDialogFilters() as Api.DialogFilter[];
+        const filter = dialogFilters.find(e => e.id === DEFAULT_FILTER_ID);
+        if (filter) {
+          filter.includePeers.push(utils.getInputPeer(chat));
+          await this.tgUser.updateDialogFilter({
+            id: DEFAULT_FILTER_ID,
+            filter,
+          });
+        }
+      }
+      catch (e) {
+        errorMessage += `\n添加到文件夹失败：${e.message}`;
+      } */
+
       // 关闭【添加成员】快捷条
       try {
         status && await status.edit({ text: '正在关闭【添加成员】快捷条…' });
@@ -217,4 +247,79 @@ export default class ConfigService {
     return message;
   }
 
+  public async createLinkGroup(qqRoomId: number, tgChatId: number) {
+    if (this.instance.workMode === 'group') {
+      try {
+        const qGroup = this.oicq.getChat(qqRoomId) as Group;
+        const tgChat = await this.tgBot.getChat(tgChatId);
+        await this.instance.forwardPairs.add(qGroup, tgChat);
+        await tgChat.sendMessage(`QQ群：${qGroup.name} (<code>${qGroup.group_id}</code>)已与 ` +
+          `Telegram 群 ${(tgChat.entity as Api.Channel).title} (<code>${tgChatId}</code>)关联`);
+        if (!(tgChat.entity instanceof Api.Channel)) {
+          // TODO 添加一个转换为超级群组的方法链接
+          await tgChat.sendMessage({
+            message: '请注意，这个群不是超级群组。一些功能，比如说同步撤回，可能会工作不正常。建议将此群组转换为超级群组',
+            linkPreview: false,
+          });
+        }
+      }
+      catch (e) {
+        this.log.error(e);
+        await (await this.owner).sendMessage(`错误：<code>${e}</code>`);
+      }
+    }
+    else {
+      await (await this.owner).sendMessage(`跳过`);
+      /* const chat = await this.tgUser.getChat(tgChatId);
+      await this.createGroupAndLink(qqRoomId, undefined, true, chat); */
+    }
+  }
+
+  // 创建 QQ 群组的文件夹
+/*   public async setupFilter() {
+    const result = await this.tgUser.getDialogFilters() as Api.DialogFilter[];
+    let filter = result.find(e => e.id === DEFAULT_FILTER_ID);
+    if (!filter) {
+      this.log.info('创建 TG 文件夹');
+      // 要自己计算新的 id，随意 id 也是可以的
+      // https://github.com/morethanwords/tweb/blob/7d646bc9a87d943426d831f30b69d61b743f51e0/src/lib/storages/filters.ts#L251
+      // 创建
+      filter = new Api.DialogFilter({
+        id: DEFAULT_FILTER_ID,
+        title: 'QQ',
+        pinnedPeers: [
+          (await this.tgUser.getChat(this.tgBot.me.username)).inputPeer,
+        ],
+        includePeers: [],
+        excludePeers: [],
+        emoticon: '🐧',
+      });
+      let errorText = '设置文件夹失败';
+      try {
+        const isSuccess = await this.tgUser.updateDialogFilter({
+          id: DEFAULT_FILTER_ID,
+          filter,
+        });
+        if (!isSuccess) {
+          this.log.error(errorText);
+          await (await this.owner).sendMessage(errorText);
+        }
+      }
+      catch (e) {
+        this.log.error(errorText, e);
+        await (await this.owner).sendMessage(errorText + `\n<code>${e}</code>`);
+      }
+    }
+  } */
+
+/*   public async migrateAllChats() {
+    const dbPairs = await db.forwardPair.findMany();
+    for (const forwardPair of dbPairs) {
+      const chatForUser = await this.tgUser.getChat(Number(forwardPair.tgChatId));
+      if (chatForUser.entity instanceof Api.Chat) {
+        this.log.info('升级群组 ', chatForUser.id);
+        await chatForUser.migrate();
+      }
+    }
+  } */
 }

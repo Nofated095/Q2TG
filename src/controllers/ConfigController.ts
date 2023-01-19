@@ -30,7 +30,7 @@ export default class ConfigController {
     oicq.on('notice.group.decrease', this.handleGroupDecrease);
     this.instance.workMode === 'personal' && oicq.on('notice.group.increase', this.handleMemberIncrease);
     this.instance.workMode === 'personal' && oicq.on('notice.friend.increase', this.handleFriendIncrease);
-    this.instance.workMode === 'personal' && this.configService.setupFilter();
+    /* this.instance.workMode === 'personal' && this.configService.setupFilter(); */
   }
 
   private handleMessage = async (message: Api.Message) => {
@@ -55,9 +55,9 @@ export default class ConfigController {
           case '/addgroup':
             await this.configService.addGroup();
             return true;
-          case '/migrate':
+/*           case '/migrate':
             await this.configService.migrateAllChats();
-            return true;
+            return true; */
           case '/login':
             await this.oicq.login();
             return true;
