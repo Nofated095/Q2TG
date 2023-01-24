@@ -17,7 +17,7 @@ QQ 群与 Telegram 群相互转发的 bot，但是去除了 _UserBot_ 模式，�
 
 请注意修改 [`docker-compose.yaml`](https://raw.githubusercontent.com/Nofated095/Q2TG/rainbowcat/docker-compose.yaml)，启动命令 `docker-compose up -d`。
 
-如果你事先部署过上游的 Q2TG 实例，建议通过 `docker stop main_q2tg` 停止服务。你可以直接修改原先的 `docker-compose.yaml` 中 `services - q2tg - image` 为 `ghcr.io/nofated095/q2tg:rainbowcat`
+如果你事先部署过上游的 Q2TG 实例，建议通过 `docker stop main_q2tg` 停止服务。你可以直接修改原先的 `docker-compose.yaml` 中 _services - q2tg - image_ 为 `ghcr.io/nofated095/q2tg:rainbowcat`
 
 ```yaml
 version: "3.8"
