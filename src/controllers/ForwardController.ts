@@ -115,11 +115,6 @@ export default class ForwardController {
       const pair = this.instance.forwardPairs.find(event.group);
       if (!pair?.joinNotice) return false;
       const avatar = await getAvatar(event.user_id);
-      await pair.tg.sendMessage({
-        file: new CustomFile('avatar.png', avatar.length, '', avatar),
-        message: `<b>${event.nickname}</b> (<code>${event.user_id}</code>) <i>加入了本群</i>`,
-        silent: true,
-      });
     }
     catch (e) {
       this.log.error('处理 QQ 群成员增加事件时遇到问题', e);
