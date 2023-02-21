@@ -236,9 +236,13 @@ export default class ForwardService {
           if (quote) {
             replyTo = quote.tgMsgId;
           }
+          else{
+            message+='\n\n<i>*回复消息找不到</i>'
+          }
         }
         catch (e) {
           this.log.error('查找回复消息失败', e);
+          message+='\n\n<i>*查找回复消息失败</i>'
         }
       }
 
@@ -291,22 +295,11 @@ export default class ForwardService {
       if (message.photo instanceof Api.Photo ||
         // stickers 和以文件发送的图片都是这个
         message.document?.mimeType?.startsWith('image/')) {
-        // 将 webp 转换为 png，防止 macOS 不识别
-        if (message.document?.mimeType === 'image/webp') {
-          const convertedPath = await convert.png(message.document.id.toString(16), () => message.downloadMedia({}));
-          chain.push({
-            type: 'image',
-            file: convertedPath,
-            asface: true,
-          });
-        }
-        else {
-          chain.push({
-            type: 'image',
-            file: await message.downloadMedia({}),
-            asface: !!message.sticker,
-          });
-        }
+        chain.push({
+          type: 'image',
+          file: await message.downloadMedia({}),
+          asface: !!message.sticker,
+        });
         brief += '[图片]';
       }
       else if (message.video || message.videoNote || message.gif) {
@@ -442,9 +435,25 @@ export default class ForwardService {
               time: quote.time,
             };
           }
+          else {
+            source = {
+              message: '回复消息找不到',
+              seq: 1,
+              time: Math.floor(new Date().getTime() / 1000),
+              rand: 1,
+              user_id: this.oicq.uin,
+            };
+          }
         }
         catch (e) {
           this.log.error('查找回复消息失败', e);
+          source = {
+            message: '查找回复消息失败',
+            seq: 1,
+            time: Math.floor(new Date().getTime() / 1000),
+            rand: 1,
+            user_id: this.oicq.uin,
+          };
         }
       }
 
