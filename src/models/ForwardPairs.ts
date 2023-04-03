@@ -76,21 +76,4 @@ export default class ForwardPairs {
       return this.pairs.find(e => e.tg.id.eq(target.id));
     }
   }
-
-  public async initMapInstance(instances: Instance[]) {
-    for (const forwardPair of this.pairs) {
-      for (const instance of instances) {
-        const instanceTgUserId = instance.userMe.id.toString();
-        if (forwardPair.instanceMapForTg[instanceTgUserId]) continue;
-        try {
-          const group = instance.oicq.getChat(forwardPair.qqRoomId) as Group;
-          if (!group) continue;
-          forwardPair.instanceMapForTg[instanceTgUserId] = group;
-          this.log.info('MapInstance', { group: forwardPair.qqRoomId, tg: instanceTgUserId, qq: instance.qqUin });
-        }
-        catch {
-        }
-      }
-    }
-  }
 }
