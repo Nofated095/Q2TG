@@ -17,6 +17,7 @@ import { getAvatar } from '../utils/urls';
 import { CustomFile } from 'telegram/client/uploads';
 import forwardHelper from '../helpers/forwardHelper';
 import helper from '../helpers/forwardHelper';
+import ZincSearch from 'zincsearch-node';
 
 export default class ForwardController {
   private readonly forwardService: ForwardService;
@@ -45,8 +46,12 @@ export default class ForwardController {
       if (!pair) return;
       if (!pair.enable) return;
       if (pair.disableQ2TG) return;
-      const tgMessage = await this.forwardService.forwardFromQq(event, pair);
-      if (tgMessage) {
+      let tgMessages: Api.Message | Api.Message[] = await this.forwardService.forwardFromQq(event, pair);
+      if (!tgMessages) return;
+      if (!Array.isArray(tgMessages)) {
+        tgMessages = [tgMessages];
+      }
+      for (const tgMessage of tgMessages) {
         // 更新数据库
         await db.message.create({
           data: {
@@ -65,6 +70,10 @@ export default class ForwardController {
             nick: event.nickname,
             tgSenderId: BigInt(this.tgBot.me.id.toString()),
           },
+        });
+        await this.forwardService.addToZinc(pair.dbId, tgMessage.id, {
+          text: event.raw_message,
+          nick: event.nickname,
         });
       }
     }
@@ -87,7 +96,7 @@ export default class ForwardController {
           await db.message.create({
             data: {
               qqRoomId: pair.qqRoomId,
-              qqSenderId: this.oicq.uin,
+              qqSenderId: qqMessageSent.senderId,
               time: qqMessageSent.time,
               brief: qqMessageSent.brief,
               seq: qqMessageSent.seq,
@@ -99,8 +108,12 @@ export default class ForwardController {
               tgMessageText: message.message,
               tgFileId: forwardHelper.getMessageDocumentId(message),
               nick: helper.getUserDisplayName(message.sender),
-              tgSenderId: BigInt(message.senderId.toString()),
+              tgSenderId: BigInt((message.senderId || message.sender?.id).toString()),
             },
+          });
+          await this.forwardService.addToZinc(pair.dbId, message.id, {
+            text: qqMessageSent.brief,
+            nick: helper.getUserDisplayName(message.sender),
           });
         }
       }

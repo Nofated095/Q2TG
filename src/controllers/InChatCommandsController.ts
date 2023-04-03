@@ -89,6 +89,11 @@ export default class InChatCommandsController {
         const helper = new RecoverMessageHelper(this.instance, this.tgBot, this.oicq, pair, message);
         helper.startRecover().then(() => this.log.info('恢复完成'));
         return true;
+      case '/search':
+        await message.reply({
+          message: await this.service.search(messageParts, pair),
+        });
+        return true;
     }
   };
 }

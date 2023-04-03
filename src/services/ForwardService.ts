@@ -1,5 +1,16 @@
 import Telegram from '../client/Telegram';
-import { Group, GroupMessageEvent, MessageElem, PrivateMessageEvent, PttElem, Quotable, segment, Sendable } from 'oicq';
+import {
+  Forwardable,
+  Group,
+  GroupMessageEvent,
+  MessageElem, MessageRet,
+  MiraiElem,
+  PrivateMessageEvent,
+  PttElem,
+  Quotable,
+  segment,
+  Sendable,
+} from 'oicq';
 import { fetchFile, getBigFaceUrl, getImageUrlByMd5 } from '../utils/urls';
 import { ButtonLike, FileLike } from 'telegram/define';
 import { getLogger, Logger } from 'log4js';
@@ -23,21 +34,52 @@ import lottie from '../constants/lottie';
 import _ from 'lodash';
 import emoji from '../constants/emoji';
 import convert from '../helpers/convert';
+import { QQMessageSent } from '../types/definitions';
+import ZincSearch from 'zincsearch-node';
+import { speech as AipSpeechClient } from 'baidu-aip-sdk';
+import random from '../utils/random';
+import { escapeXml } from 'oicq/lib/common';
 
 const NOT_CHAINABLE_ELEMENTS = ['flash', 'record', 'video', 'location', 'share', 'json', 'xml', 'poke'];
 
 // noinspection FallThroughInSwitchStatementJS
 export default class ForwardService {
   private readonly log: Logger;
+  private readonly zincSearch: ZincSearch;
+  private readonly speechClient: AipSpeechClient;
 
   constructor(private readonly instance: Instance,
               private readonly tgBot: Telegram,
               private readonly oicq: OicqClient) {
     this.log = getLogger(`ForwardService - ${instance.id}`);
+    if (process.env.ZINC_URL) {
+      this.zincSearch = new ZincSearch({
+        url: process.env.ZINC_URL,
+        user: process.env.ZINC_USERNAME,
+        password: process.env.ZINC_PASSWORD,
+      });
+    }
+    if (process.env.BAIDU_APP_ID) {
+      this.speechClient = new AipSpeechClient(
+        process.env.BAIDU_APP_ID,
+        process.env.BAIDU_API_KEY,
+        process.env.BAIDU_SECRET_KEY,
+      );
+    }
   }
 
   public async forwardFromQq(event: PrivateMessageEvent | GroupMessageEvent, pair: Pair) {
     try {
+      const messageMirai = event.message.find(it => it.type === 'mirai') as MiraiElem;
+      if (messageMirai) {
+        try {
+          const miraiData = JSON.parse(messageMirai.data);
+          if (miraiData.q2tgSkip) return;
+        }
+        catch {
+        }
+      }
+
       const tempFiles: FileResult[] = [];
       let message = '', files: FileLike[] = [], buttons: ButtonLike[] = [], replyTo = 0;
       let messageHeader = '', sender = '';
@@ -54,6 +96,25 @@ export default class ForwardService {
         if (event.message_type === 'group') {
           buttons.push(Button.inline(`${sender}:`));
           messageHeader = '';
+        }
+      };
+      const useForward = async (resId: string) => {
+        try {
+          const messages = await pair.qq.getForwardMsg(resId);
+          message = helper.generateForwardBrief(messages);
+          const hash = md5Hex(resId);
+          buttons.push(Button.url('📃查看', `${process.env.CRV_API}/?hash=${hash}`));
+          // 传到 Cloudflare
+          axios.post(`${process.env.CRV_API}/add`, {
+            auth: process.env.CRV_KEY,
+            key: hash,
+            data: messages,
+          })
+            .then(data => this.log.trace('上传消息记录到 Cloudflare', data.data))
+            .catch(e => this.log.error('上传消息记录到 Cloudflare 失败', e));
+        }
+        catch (e) {
+          message = '[<i>转发多条消息（无法获取）</i>]';
         }
       };
       for (const elem of event.message) {
@@ -98,7 +159,11 @@ export default class ForwardService {
             if ('url' in elem)
               url = elem.url;
             try {
-              if (elem.type === 'image' && elem.asface && !(elem.file as string).toLowerCase().endsWith('.gif')) {
+              if (elem.type === 'image' && elem.asface
+                && !(elem.file as string).toLowerCase().endsWith('.gif')
+                // 防止在 TG 中一起发送多个 sticker 失败
+                && event.message.filter(it => it.type === 'image').length === 1
+              ) {
                 useSticker(await convert.webp(elem.file as string, () => fetchFile(elem.url)));
               }
               else {
@@ -158,6 +223,22 @@ export default class ForwardService {
               url = (refetchMessage.message.find(it => it.type === 'record') as PttElem).url;
             }
             await silk.decode(await fetchFile(url), temp.path);
+            if (this.speechClient) {
+              const pcmPath = await createTempFile({ postfix: '.pcm' });
+              tempFiles.push(pcmPath);
+              await silk.conventOggToPcm16000(temp.path, pcmPath.path);
+              const pcm = await fsP.readFile(pcmPath.path);
+              const recognize = await this.speechClient.recognize(pcm, 'pcm', 16000, {
+                dev_pid: 1537,
+                cuid: Math.random().toString(),
+              });
+              if (recognize.err_no) {
+                message += '识别失败：' + recognize.err_msg;
+              }
+              else {
+                message += recognize.result[0];
+              }
+            }
             files.push(temp.path);
             break;
           }
@@ -166,7 +247,15 @@ export default class ForwardService {
             break;
           }
           case 'json': {
-            message = helper.htmlEscape(helper.processJson(elem.data));
+            const result = helper.processJson(elem.data);
+            switch (result.type) {
+              case 'text':
+                message = helper.htmlEscape(result.text);
+                break;
+              case 'forward':
+                await useForward(result.resId);
+                break;
+            }
             break;
           }
           case 'xml': {
@@ -186,23 +275,7 @@ export default class ForwardService {
                 }
                 break;
               case 'forward':
-                try {
-                  const messages = await pair.qq.getForwardMsg(result.resId);
-                  message = helper.generateForwardBrief(messages);
-                  const hash = md5Hex(result.resId);
-                  buttons.push(Button.url('📃查看', `${process.env.CRV_API}/?hash=${hash}`));
-                  // 传到 Cloudflare
-                  axios.post(`${process.env.CRV_API}/add`, {
-                    auth: process.env.CRV_KEY,
-                    key: hash,
-                    data: messages,
-                  })
-                    .then(data => this.log.trace('上传消息记录到 Cloudflare', data.data))
-                    .catch(e => this.log.error('上传消息记录到 Cloudflare 失败', e));
-                }
-                catch (e) {
-                  message = '[<i>转发多条消息（无法获取）</i>]';
-                }
+                await useForward(result.resId);
                 break;
             }
             break;
@@ -229,20 +302,28 @@ export default class ForwardService {
             where: {
               qqRoomId: pair.qqRoomId,
               seq: event.source.seq,
-              rand: event.source.rand,
+              // rand: event.source.rand,
+              qqSenderId: event.source.user_id,
               instanceId: this.instance.id,
             },
           });
           if (quote) {
             replyTo = quote.tgMsgId;
           }
-          else{
-            message+='\n\n<i>*回复消息找不到</i>'
+          else {
+            message += '\n\n<i>*回复消息找不到</i>';
+            this.log.error('回复消息找不到', {
+              qqRoomId: pair.qqRoomId,
+              seq: event.source.seq,
+              rand: event.source.rand,
+              qqSenderId: event.source.user_id,
+              instanceId: this.instance.id,
+            });
           }
         }
         catch (e) {
           this.log.error('查找回复消息失败', e);
-          message+='\n\n<i>*查找回复消息失败</i>'
+          message += '\n\n<i>*查找回复消息失败</i>';
         }
       }
 
@@ -278,34 +359,72 @@ export default class ForwardService {
     }
   }
 
-  async forwardFromTelegram(message: Api.Message, pair: Pair) {
+  public async forwardFromTelegram(message: Api.Message, pair: Pair): Promise<Array<QQMessageSent>> {
     try {
       const tempFiles: FileResult[] = [];
       const chain: Sendable = [];
       const senderId = Number(message.senderId || message.sender?.id);
       // 这条消息在 tg 中被回复的时候显示的
-      let brief = '';
-      this.instance.workMode === 'group' && chain.push(helper.getUserDisplayName(message.sender) +
+      let brief = '', isSpoilerPhoto = false;
+      const messageHeader = helper.getUserDisplayName(message.sender) +
         (message.forward ? ' 转发自 ' +
           // 要是隐私设置了，应该会有这个，然后下面两个都获取不到
           (message.fwdFrom?.fromName ||
             helper.getUserDisplayName(await message.forward.getChat() || await message.forward.getSender())) :
           '') +
-        ': \n');
+        ': \n';
       if (message.photo instanceof Api.Photo ||
         // stickers 和以文件发送的图片都是这个
         message.document?.mimeType?.startsWith('image/')) {
-        chain.push({
-          type: 'image',
-          file: await message.downloadMedia({}),
-          asface: !!message.sticker,
-        });
-        brief += '[图片]';
+        if ('spoiler' in message.media && message.media.spoiler) {
+          isSpoilerPhoto = true;
+          const msgList: Forwardable[] = [{
+            user_id: this.oicq.uin,
+            nickname: messageHeader.substring(0, messageHeader.length - 3),
+            message: {
+              type: 'image',
+              file: await message.downloadMedia({}),
+              asface: !!message.sticker,
+            },
+          }];
+          if (message.message) {
+            msgList.push({
+              user_id: this.oicq.uin,
+              nickname: messageHeader.substring(0, messageHeader.length - 3),
+              message: message.message,
+            });
+          }
+          const fake = await pair.qq.makeForwardMsg(msgList);
+          chain.push({
+            type: 'xml',
+            id: 60,
+            data: `<?xml version="1.0" encoding="utf-8"?>` +
+              `<msg serviceID="35" templateID="1" action="viewMultiMsg" brief="[Spoiler 图片]"
+ m_resid="${fake.resid}" m_fileName="${random.fakeUuid().toUpperCase()}" tSum="${fake.tSum}"
+ sourceMsgId="0" url="" flag="3" adverSign="0" multiMsgFlag="0"><item layout="1"
+ advertiser_id="0" aid="0"><title size="34" maxLines="2" lineSpace="12"
+>${escapeXml(messageHeader.substring(0, messageHeader.length - 2))}</title
+><title size="26" color="#777777" maxLines="2" lineSpace="12">Spoiler 图片</title
+>${message.message ? `<title color="#303133" size="26">${escapeXml(message.message)}</title>` : ''
+              }<hr hidden="false" style="0" /><summary size="26" color="#777777">请谨慎查看</summary
+></item><source name="Q2TG" icon="" action="" appid="-1" /></msg>`.replaceAll('\n', ''),
+          });
+          console.log(chain);
+          brief += '[Spoiler 图片]';
+        }
+        else {
+          chain.push({
+            type: 'image',
+            file: await message.downloadMedia({}),
+            asface: !!message.sticker,
+          });
+          brief += '[图片]';
+        }
       }
       else if (message.video || message.videoNote || message.gif) {
         const file = message.video || message.videoNote || message.gif;
-        if (file.size.gt(50 * 1024 * 1024)) {
-          chain.push('[视频大于 50MB]');
+        if (file.size.gt(200 * 1024 * 1024)) {
+          chain.push('[视频大于 200MB]');
         }
         else if (file.mimeType === 'video/webm' || message.gif) {
           // 把 webm 转换成 gif
@@ -340,6 +459,22 @@ export default class ForwardService {
         await fsP.writeFile(temp.path, await message.downloadMedia({}));
         const bufSilk = await silk.encode(temp.path);
         chain.push(segment.record(bufSilk));
+        if (this.speechClient) {
+          const pcmPath = await createTempFile({ postfix: '.pcm' });
+          tempFiles.push(pcmPath);
+          await silk.conventOggToPcm16000(temp.path, pcmPath.path);
+          const pcm = await fsP.readFile(pcmPath.path);
+          const recognize = await this.speechClient.recognize(pcm, 'pcm', 16000, {
+            dev_pid: 1537,
+            cuid: Math.random().toString(),
+          });
+          if (recognize.err_no) {
+            chain.push('识别失败：' + recognize.err_msg);
+          }
+          else {
+            chain.push('[语音] ', recognize.result[0]);
+          }
+        }
         brief += '[语音]';
       }
       else if (message.poll) {
@@ -390,7 +525,7 @@ export default class ForwardService {
         brief += '[文件]';
       }
 
-      if (message.message) {
+      if (message.message && !isSpoilerPhoto) {
         if (message.entities) {
           const emojiEntities = message.entities.filter(it => it instanceof Api.MessageEntityCustomEmoji) as Api.MessageEntityCustomEmoji[];
           const isMessageAllEmojis = _.sum(emojiEntities.map(it => it.length)) === message.message.length;
@@ -457,24 +592,60 @@ export default class ForwardService {
         }
       }
 
-      // 防止发送空白消息，也就是除了发送者啥都没有的消息
-      if (this.instance.workMode === 'group' && chain.length === 1) {
+      // 防止发送空白消息
+      if (chain.length === 0) {
         return [];
       }
 
       const notChainableElements = chain.filter(element => typeof element === 'object' && NOT_CHAINABLE_ELEMENTS.includes(element.type));
       const chainableElements = chain.filter(element => typeof element !== 'object' || !NOT_CHAINABLE_ELEMENTS.includes(element.type));
-      const qqMessages = [];
-      if (chainableElements.length) {
-        if (this.instance.workMode === 'group') {
-          chainableElements.push({
-            type: 'mirai',
-            data: JSON.stringify({ id: senderId }, undefined, 0),
-          });
+
+      // MapInstance
+      if (!notChainableElements.length // notChainableElements 无法附加 mirai 信息，要防止被来回转发
+        && chainableElements.length
+        && this.instance.workMode
+        && pair.instanceMapForTg[senderId]
+      ) {
+        try {
+          const messageSent = await pair.instanceMapForTg[senderId].sendMsg([
+            ...chainableElements,
+            {
+              type: 'mirai',
+              data: JSON.stringify({
+                id: senderId,
+                eqq: { type: 'tg', tgUid: senderId, noSplitSender: true, version: 2 },
+                q2tgSkip: true,
+              }, undefined, 0),
+            },
+          ], source);
+          tempFiles.forEach(it => it.cleanup());
+          return [{
+            ...messageSent,
+            senderId: pair.instanceMapForTg[senderId].client.uin,
+            brief,
+          }];
         }
+        catch (e) {
+          this.log.error('使用 MapInstance 发送消息失败', e);
+        }
+      }
+
+      if (this.instance.workMode === 'group' && !isSpoilerPhoto) {
+        chainableElements.unshift(messageHeader);
+      }
+      const qqMessages = [] as Array<QQMessageSent>;
+      if (chainableElements.length) {
+        chainableElements.push({
+          type: 'mirai',
+          data: JSON.stringify({
+            id: senderId,
+            eqq: { type: 'tg', tgUid: senderId, noSplitSender: this.instance.workMode === 'personal', version: 2 },
+          }, undefined, 0),
+        });
         qqMessages.push({
           ...await pair.qq.sendMsg(chainableElements, source),
           brief,
+          senderId: this.oicq.uin,
         });
       }
       if (notChainableElements.length) {
@@ -482,10 +653,12 @@ export default class ForwardService {
           qqMessages.push({
             ...await pair.qq.sendMsg(notChainableElement, source),
             brief,
+            senderId: this.oicq.uin,
           });
         }
       }
       tempFiles.forEach(it => it.cleanup());
+      console.log(qqMessages);
       return qqMessages;
     }
     catch (e) {
@@ -498,5 +671,50 @@ export default class ForwardService {
       catch {
       }
     }
+  }
+
+  public async addToZinc(pairId: number, tgMsgId: number, data: {
+    text: string,
+    nick: string,
+  }) {
+    if (!this.zincSearch) return;
+    const existsReq = await fetch(process.env.ZINC_URL + `/api/index/q2tg-${pairId}`, {
+      method: 'HEAD',
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(process.env.ZINC_USERNAME + ':' + process.env.ZINC_PASSWORD).toString('base64'),
+      },
+    });
+    if (existsReq.status === 404) {
+      await this.zincSearch.indices.create({
+        name: `q2tg-${pairId}`,
+        mappings: {
+          properties: {
+            nick: {
+              type: 'text',
+              index: true,
+              store: false,
+              aggregatable: false,
+              highlightable: true,
+              analyzer: 'gse_search',
+              search_analyzer: 'gse_standard',
+            },
+            text: {
+              type: 'text',
+              index: true,
+              store: false,
+              aggregatable: false,
+              highlightable: true,
+              analyzer: 'gse_search',
+              search_analyzer: 'gse_standard',
+            },
+          },
+        },
+      });
+    }
+    await this.zincSearch.document.createOrUpdate({
+      id: tgMsgId.toString(),
+      index: `q2tg-${pairId}`,
+      document: data,
+    });
   }
 }

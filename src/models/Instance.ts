@@ -35,8 +35,8 @@ export default class Instance {
 
   private readonly log: Logger;
 
-  private tgBot: Telegram;
-  private oicq: OicqClient;
+  public tgBot: Telegram;
+  public oicq: OicqClient;
 
   private _ownerChat: TelegramChat;
 
