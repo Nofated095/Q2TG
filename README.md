@@ -1,5 +1,8 @@
 # Q2TG - without User Bot
-QQ 群与 Telegram 群相互转发的 bot，但是去除了 _UserBot_ 模式，再也不用担心杜叔叔瞎几把封号啦！
+
+A **fork** of [Clansty/Q2TG](https://github.com/Clansty/Q2TG). Deleted UserBot function.
+
+QQ 群与 Telegram 群相互转发的 bot，但是去除了 _UserBot_ 模式，再也不用担心杜叔叔把 UserBot 封号啦！
 
 ## 为什么不需要 User Bot
 
