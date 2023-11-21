@@ -1,19 +1,24 @@
 version: "3.8"
+
+volumes:
+  postgresql:
+  zinc-data:
+  q2tg:
+
 services:
   # 如果有现成的 Postgresql 实例，可以删除这一小节
   postgres:
     image: postgres:14-alpine
-    container_name: postgresql_q2tg
     restart: unless-stopped
     environment:
       POSTGRES_DB: db_name
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
     volumes:
-      - ./postgresql:/var/lib/postgresql/data
+      - postgresql:/var/lib/postgresql/data
   zinclabs:
     volumes:
-      - './zinc/data:/data'
+      - 'zinc-data:/data'
     environment:
       - ZINC_DATA_PATH=/data
       - ZINC_FIRST_ADMIN_USER=admin
@@ -39,7 +44,7 @@ services:
       - zinclabs
       - sign
     volumes:
-      - ./data:/app/data
+      - q2tg:/app/data
     environment:
       - TG_API_ID=
       - TG_API_HASH=
@@ -52,6 +57,7 @@ services:
       - ZINC_PASSWORD=password
       - SIGN_API=http://sign:8080/sign?key=114514
       - SIGN_VER=8.9.71 # 与上方 sign 容器的配置同步
+      - TG_CONNECTION=tcp # 连接 Telegram 的方式，也可以改成 websocket
       # 要支持转发时自动识别语音，请设置以下参数
       - BAIDU_APP_ID=
       - BAIDU_API_KEY=

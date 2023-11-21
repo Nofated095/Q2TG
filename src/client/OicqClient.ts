@@ -21,7 +21,7 @@ import { randomBytes } from 'crypto';
 import { escapeXml, gzip, timestamp } from 'icqq/lib/common';
 import { pb } from 'icqq/lib/core';
 
-const LOG_LEVEL: LogLevel = 'info';
+const LOG_LEVEL: LogLevel = process.env.LOG_LEVEL as LogLevel || 'info';
 
 type MessageHandler = (event: PrivateMessageEvent | GroupMessageEvent) => Promise<boolean | void>
 
@@ -36,8 +36,6 @@ interface CreateOicqParams {
   onVerifyDevice: (phone: string) => Promise<string>;
   // 当滑块时调用此方法，返回 ticker，也可以返回假值改用扫码登录
   onVerifySlider: (url: string) => Promise<string>;
-  // 扫码后返回
-  onQrCode: (image: Buffer) => Promise<void>;
 }
 
 // OicqExtended??
@@ -78,11 +76,6 @@ export default class OicqClient extends Client {
         }
       };
 
-      const loginQrCodeHandler = async ({ image }: { image: Buffer }) => {
-        await params.onQrCode(image);
-        client.qrcodeLogin();
-      };
-
       const loginErrorHandler = ({ message }: { code: number; message: string }) => {
         reject(message);
       };
@@ -90,15 +83,14 @@ export default class OicqClient extends Client {
       const successLoginHandler = () => {
         client.offTrap('system.login.device', loginDeviceHandler);
         client.offTrap('system.login.slider', loginSliderHandler);
-        client.offTrap('system.login.qrcode', loginQrCodeHandler);
         client.offTrap('system.login.error', loginErrorHandler);
         client.offTrap('system.online', successLoginHandler);
 
         if (!client.isOnMessageCreated) {
           client.trap('message', client.onMessage);
           client.isOnMessageCreated = true;
-        };
-        
+        }
+
         resolve(client);
       };
 
@@ -131,12 +123,11 @@ export default class OicqClient extends Client {
         log_level: LOG_LEVEL,
         ffmpeg_path: process.env.FFMPEG_PATH,
         ffprobe_path: process.env.FFPROBE_PATH,
-        sign_api_addr: params.signApi,
-        ver: params.signVer,
+        sign_api_addr: params.signApi || process.env.SIGN_API,
+        ver: params.signVer || process.env.SIGN_VER,
       });
       client.on('system.login.device', loginDeviceHandler);
       client.on('system.login.slider', loginSliderHandler);
-      client.on('system.login.qrcode', loginQrCodeHandler);
       client.on('system.login.error', loginErrorHandler);
       client.on('system.online', successLoginHandler);
 
