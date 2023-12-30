@@ -2,7 +2,9 @@
 
 A **fork** of [Clansty/Q2TG](https://github.com/Clansty/Q2TG). Deleted UserBot function.
 
-QQ 群与 Telegram 群相互转发的 bot，但是去除了 _UserBot_ 模式，再也不用担心杜叔叔把 UserBot 封号啦！
+交流 <https://t.me/+XkF-96lLnFU3ZTM1>
+
+QQ 群与 Telegram 群相互转发的 bot，但是去除了 _UserBot_ 模式，再也不用担心杜叔叔封 UserBot 啦！
 
 ## 为什么不需要 User Bot
 
