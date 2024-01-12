@@ -27,7 +27,4 @@ import db from './models/db';
     }
   }
 
-  setTimeout(async () => {
-    log.info('开始加载 MapInstance')
-  }, 15 * 1000);
 })();

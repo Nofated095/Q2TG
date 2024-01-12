@@ -79,6 +79,7 @@ export default class SetupController {
         platform: this.instance.qq.platform,
         signApi: this.instance.qq.signApi,
         signVer: this.instance.qq.signVer,
+        signDockerId: this.instance.qq.signDockerId,
         onVerifyDevice: async (phone) => {
           return await this.setupService.waitForOwnerInput(`请输入手机 ${phone} 收到的验证码`);
         },
@@ -114,12 +115,14 @@ export default class SetupController {
         let signVer: string;
 
         if (signApi && !process.env.SIGN_VER) {
-          signVer = await this.setupService.waitForOwnerInput('请输入签名服务器版本,当前支持安卓(8.9.63、8.9.68、8.9.70)、Tim(3.5.1、3.5.2)', [
-            [Button.text('8.9.63', true, true)],
-            [Button.text('8.9.68', true, true)],
-            [Button.text('8.9.70', true, true)],
-            [Button.text('3.5.1', true, true)],
-            [Button.text('3.5.2', true, true)],
+          signVer = await this.setupService.waitForOwnerInput('请输入签名服务器版本', [
+            [Button.text('8.9.63', true, true),
+              Button.text('8.9.68', true, true)],
+            [Button.text('8.9.70', true, true),
+              Button.text('8.9.71', true, true),
+              Button.text('8.9.73', true, true)],
+            [Button.text('8.9.78', true, true),
+              Button.text('8.9.83', true, true)],
           ]);
         }
 
@@ -142,18 +145,6 @@ export default class SetupController {
     else {
       await this.setupService.informOwner(`UserBot 创建被跳过`);
     }
-//      try {
-//        const phoneNumber = await this.setupService.waitForOwnerInput('创建 Telegram UserBot，请输入你的手机号码（需要带国家区号，例如：+86）');
-//        await this.setupService.informOwner('正在登录，请稍候…');
-//        this.tgUser = await this.setupService.createUserBot(phoneNumber);
-//        this.instance.userSessionId = this.tgUser.sessionId;
-//        await this.setupService.informOwner(`登录成功`);
-//      }
-//      catch (e) {
-//        this.log.error('创建 UserBot 失败', e);
-//        this.isInProgress = false;
-//        throw e;
-//      }
   }
 
   private async finishSetup() {
