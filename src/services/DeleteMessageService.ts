@@ -7,13 +7,24 @@ import Instance from '../models/Instance';
 import { Pair } from '../models/Pair';
 import { consumer } from '../utils/highLevelFunces';
 import forwardHelper from '../helpers/forwardHelper';
+import flags from '../constants/flags';
 
 export default class DeleteMessageService {
   private readonly log: Logger;
+  private readonly lockIds = new Set<string>();
 
   constructor(private readonly instance: Instance,
               private readonly tgBot: Telegram) {
     this.log = getLogger(`DeleteMessageService - ${instance.id}`);
+  }
+
+  private lock(lockId: string) {
+    if (this.lockIds.has(lockId)) {
+      this.log.debug('重复执行消息撤回', lockId);
+      return true;
+    }
+    this.lockIds.add(lockId);
+    setTimeout(() => this.lockIds.delete(lockId), 5000);
   }
 
   // 500ms 内只撤回一条消息，防止频繁导致一部分消息没有成功撤回。不过这样的话，会得不到返回的结果
@@ -45,6 +56,7 @@ export default class DeleteMessageService {
    */
   async telegramDeleteMessage(messageId: number, pair: Pair, isOthersMsg = false) {
     // 删除的时候会返回记录
+    if (this.lock(`tg-${pair.tgId}-${messageId}`)) return;
     try {
       const messageInfo = await db.message.findFirst({
         where: {
@@ -55,6 +67,7 @@ export default class DeleteMessageService {
       });
       if (messageInfo) {
         try {
+          if (this.lock(`qq-${pair.qqRoomId}-${messageInfo.seq}`)) return;
           const mapQq = pair.instanceMapForTg[messageInfo.tgSenderId.toString()];
           mapQq && this.recallQqMessage(mapQq, messageInfo.seq, Number(messageInfo.rand), messageInfo.pktnum, pair, false, true);
           // 假如 mapQQ 是普通成员，机器人是管理员，上面撤回失败了也可以由机器人撤回
@@ -134,6 +147,7 @@ export default class DeleteMessageService {
   }
 
   public async handleQqRecall(event: FriendRecallEvent | GroupRecallEvent, pair: Pair) {
+    if (this.lock(`qq-${pair.qqRoomId}-${event.seq}`)) return;
     try {
       const message = await db.message.findFirst({
         where: {
@@ -143,11 +157,20 @@ export default class DeleteMessageService {
           instanceId: this.instance.id,
         },
       });
-      if (message) {
+      if (!message) return;
+      if (this.lock(`tg-${pair.tgId}-${message.tgMsgId}`)) return;
+      if ((pair.flags | this.instance.flags) & flags.NO_DELETE_MESSAGE) {
+        await pair.tg.editMessages({
+          message: message.tgMsgId,
+          text: `<del>${message.tgMessageText}</del>\n<i>此消息已删除</i>`,
+          parseMode: 'html',
+        });
+      }
+      else {
+        await pair.tg.deleteMessages(message.tgMsgId);
         await db.message.delete({
           where: { id: message.id },
         });
-        await pair.tg.deleteMessages(message.tgMsgId);
       }
     }
     catch (e) {

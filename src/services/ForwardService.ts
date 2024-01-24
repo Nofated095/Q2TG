@@ -41,6 +41,7 @@ import random from '../utils/random';
 import { escapeXml } from 'icqq/lib/common';
 import Docker from 'dockerode';
 import ReplyKeyboardHide = Api.ReplyKeyboardHide;
+import env from '../models/env';
 
 const NOT_CHAINABLE_ELEMENTS = ['flash', 'record', 'video', 'location', 'share', 'json', 'xml', 'poke'];
 
@@ -55,18 +56,18 @@ export default class ForwardService {
               private readonly tgBot: Telegram,
               private readonly oicq: OicqClient) {
     this.log = getLogger(`ForwardService - ${instance.id}`);
-    if (process.env.ZINC_URL) {
+    if (env.ZINC_URL) {
       this.zincSearch = new ZincSearch({
-        url: process.env.ZINC_URL,
-        user: process.env.ZINC_USERNAME,
-        password: process.env.ZINC_PASSWORD,
+        url: env.ZINC_URL,
+        user: env.ZINC_USERNAME,
+        password: env.ZINC_PASSWORD,
       });
     }
-    if (process.env.BAIDU_APP_ID) {
+    if (env.BAIDU_APP_ID) {
       this.speechClient = new AipSpeechClient(
-        process.env.BAIDU_APP_ID,
-        process.env.BAIDU_API_KEY,
-        process.env.BAIDU_SECRET_KEY,
+        env.BAIDU_APP_ID,
+        env.BAIDU_API_KEY,
+        env.BAIDU_SECRET_KEY,
       );
     }
     if (oicq.signDockerId) {
@@ -91,16 +92,6 @@ export default class ForwardService {
 
   public async forwardFromQq(event: PrivateMessageEvent | GroupMessageEvent, pair: Pair) {
     try {
-      const messageMirai = event.message.find(it => it.type === 'mirai') as MiraiElem;
-      if (messageMirai) {
-        try {
-          const miraiData = JSON.parse(messageMirai.data);
-          if (miraiData.q2tgSkip) return;
-        }
-        catch {
-        }
-      }
-
       const tempFiles: FileResult[] = [];
       let message = '', files: FileLike[] = [], buttons: ButtonLike[] = [], replyTo = 0;
       let messageHeader = '', sender = '';
@@ -120,22 +111,27 @@ export default class ForwardService {
         }
       };
       const useForward = async (resId: string) => {
-        try {
-          const messages = await pair.qq.getForwardMsg(resId);
-          message = helper.generateForwardBrief(messages);
-          const hash = md5Hex(resId);
-          buttons.push(Button.url('📃查看', `${process.env.CRV_API}/?hash=${hash}`));
-          // 传到 Cloudflare
-          axios.post(`${process.env.CRV_API}/add`, {
-            auth: process.env.CRV_KEY,
-            key: hash,
-            data: messages,
-          })
-            .then(data => this.log.trace('上传消息记录到 Cloudflare', data.data))
-            .catch(e => this.log.error('上传消息记录到 Cloudflare 失败', e));
+        if(env.CRV_API) {
+          try {
+            const messages = await pair.qq.getForwardMsg(resId);
+            message = helper.generateForwardBrief(messages);
+            const hash = md5Hex(resId);
+            buttons.push(Button.url('📃查看', `${env.CRV_API}/?hash=${hash}`));
+            // 传到 Cloudflare
+            axios.post(`${env.CRV_API}/add`, {
+              auth: env.CRV_KEY,
+              key: hash,
+              data: messages,
+            })
+              .then(data => this.log.trace('上传消息记录到 Cloudflare', data.data))
+              .catch(e => this.log.error('上传消息记录到 Cloudflare 失败', e));
+          }
+          catch (e) {
+            message = '[<i>转发多条消息（无法获取）</i>]';
+          }
         }
-        catch (e) {
-          message = '[<i>转发多条消息（无法获取）</i>]';
+        else {
+          message = '[<i>转发多条消息（未配置）</i>]';
         }
       };
       for (const elem of event.message) {
@@ -350,6 +346,12 @@ export default class ForwardService {
         }
       }
 
+      if (this.instance.workMode === 'personal' && event.message_type === 'group' && event.atme && !replyTo) {
+        message += `\n<b>@${this.instance.userMe.usernames?.length ?
+          this.instance.userMe.usernames[0].username :
+          this.instance.userMe.username}</b>`;
+      }
+
       // 发送消息
       const messageToSend: SendMessageParams = {};
       message && (messageToSend.message = message);
@@ -389,7 +391,7 @@ export default class ForwardService {
       const senderId = Number(message.senderId || message.sender?.id);
       // 这条消息在 tg 中被回复的时候显示的
       let brief = '', isSpoilerPhoto = false;
-      const messageHeader = helper.getUserDisplayName(message.sender) +
+      let messageHeader = helper.getUserDisplayName(message.sender) +
         (message.forward ? ' 转发自 ' +
           // 要是隐私设置了，应该会有这个，然后下面两个都获取不到
           (message.fwdFrom?.fromName ||
@@ -545,14 +547,14 @@ export default class ForwardService {
           }
         }
         brief += '[文件]';
-        if (process.env.DISABLE_FILE_UPLOAD_TIP) {
+        if (env.DISABLE_FILE_UPLOAD_TIP) {
           chain = [];
         }
       }
 
       if (message.message && !isSpoilerPhoto) {
-        if (message.entities) {
-          const emojiEntities = message.entities.filter(it => it instanceof Api.MessageEntityCustomEmoji) as Api.MessageEntityCustomEmoji[];
+        const emojiEntities = (message.entities || []).filter(it => it instanceof Api.MessageEntityCustomEmoji) as Api.MessageEntityCustomEmoji[];
+        if (emojiEntities.length) {
           const isMessageAllEmojis = _.sum(emojiEntities.map(it => it.length)) === message.message.length;
           const newChain = [] as (string | MessageElem)[];
           let messageLeft = message.message;
@@ -568,11 +570,23 @@ export default class ForwardService {
             });
           }
           chain.push(messageLeft, ...newChain);
+          brief += message.message;
+        }
+        // Q2TG Bot 转发的消息目前不会包含 custom emoji
+        else if (message.forward?.senderId?.eq?.(this.tgBot.me.id) && /^.*: ?$/.test(message.message.split('\n')[0])) {
+          // 复读了某一条来自 QQ 的消息 (Repeat as forward)
+          const originalMessage = message.message.includes('\n') ?
+            message.message.substring(message.message.indexOf('\n') + 1) : '';
+          chain.push(originalMessage);
+          brief += originalMessage;
+
+          messageHeader = helper.getUserDisplayName(message.sender) + ' 转发自 ' +
+            message.message.substring(0, message.message.indexOf(':')) + ': \n';
         }
         else {
           chain.push(message.message);
+          brief += message.message;
         }
-        brief += message.message;
       }
 
       // 处理回复
@@ -705,10 +719,10 @@ export default class ForwardService {
     nick: string,
   }) {
     if (!this.zincSearch) return;
-    const existsReq = await fetch(process.env.ZINC_URL + `/api/index/q2tg-${pairId}`, {
+    const existsReq = await fetch(env.ZINC_URL + `/api/index/q2tg-${pairId}`, {
       method: 'HEAD',
       headers: {
-        Authorization: 'Basic ' + Buffer.from(process.env.ZINC_USERNAME + ':' + process.env.ZINC_PASSWORD).toString('base64'),
+        Authorization: 'Basic ' + Buffer.from(env.ZINC_USERNAME + ':' + env.ZINC_PASSWORD).toString('base64'),
       },
     });
     if (existsReq.status === 404) {

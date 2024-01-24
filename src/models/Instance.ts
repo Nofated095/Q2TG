@@ -23,6 +23,8 @@ import { QqBot } from '@prisma/client';
 import StatusReportController from '../controllers/StatusReportController';
 import HugController from '../controllers/HugController';
 import QuotLyController from '../controllers/QuotLyController';
+import MiraiSkipFilterController from '../controllers/MiraiSkipFilterController';
+import env from './env';
 
 export default class Instance {
   private _owner = 0;
@@ -32,6 +34,7 @@ export default class Instance {
   private _userSessionId = 0;
   private _qq: QqBot;
   private _reportUrl: string;
+  private _flags: number;
 
   private readonly log: Logger;
 
@@ -53,6 +56,7 @@ export default class Instance {
   private statusReportController: StatusReportController;
   private hugController: HugController;
   private quotLyController: QuotLyController;
+  private miraiSkipFilterController: MiraiSkipFilterController;
 
   private constructor(public readonly id: number) {
     this.log = getLogger(`Instance - ${this.id}`);
@@ -83,6 +87,7 @@ export default class Instance {
     this._isSetup = dbEntry.isSetup;
     this._workMode = dbEntry.workMode;
     this._reportUrl = dbEntry.reportUrl;
+    this._flags = dbEntry.flags;
   }
 
   private async init(botToken?: string) {
@@ -91,7 +96,7 @@ export default class Instance {
       this.tgBot = await Telegram.connect(this._botSessionId);
     }
     else {
-      const token = this.id === 0 ? process.env.TG_BOT_TOKEN : botToken;
+      const token = this.id === 0 ? env.TG_BOT_TOKEN : botToken;
       if (!token) {
         throw new Error('botToken 未指定');
       }
@@ -146,14 +151,12 @@ export default class Instance {
       this.requestController = new RequestController(this, this.tgBot, this.oicq);
       this.configController = new ConfigController(this, this.tgBot, this.oicq);
       this.deleteMessageController = new DeleteMessageController(this, this.tgBot, this.oicq);
+      this.miraiSkipFilterController = new MiraiSkipFilterController(this, this.tgBot, this.oicq);
       this.inChatCommandsController = new InChatCommandsController(this, this.tgBot, this.oicq);
-      if (this.workMode === 'group') {
-        this.hugController = new HugController(this, this.tgBot, this.oicq);
-      }
+      this.quotLyController = new QuotLyController(this, this.tgBot, this.oicq);
       this.forwardController = new ForwardController(this, this.tgBot, this.oicq);
       if (this.workMode === 'group') {
-        // 希望那个 /q 也被转发
-        this.quotLyController = new QuotLyController(this, this.tgBot, this.oicq);
+        this.hugController = new HugController(this, this.tgBot, this.oicq);
       }
       this.fileAndFlashPhotoController = new FileAndFlashPhotoController(this, this.tgBot, this.oicq);
     })()
@@ -253,6 +256,10 @@ export default class Instance {
     return this._reportUrl;
   }
 
+  get flags() {
+    return this._flags;
+  }
+
   set owner(owner: number) {
     this._owner = owner;
     db.instance.update({
@@ -307,10 +314,20 @@ export default class Instance {
   }
 
   set reportUrl(reportUrl: string) {
+    this._reportUrl = reportUrl;
     db.instance.update({
       data: { reportUrl },
       where: { id: this.id },
     })
       .then(() => this.log.trace(reportUrl));
+  }
+
+  set flags(value) {
+    this._flags = value;
+    db.instance.update({
+      data: { flags: value },
+      where: { id: this.id },
+    })
+      .then(() => this.log.trace(value));
   }
 }

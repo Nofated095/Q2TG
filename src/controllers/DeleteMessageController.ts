@@ -14,8 +14,9 @@ export default class DeleteMessageController {
     this.deleteMessageService = new DeleteMessageService(this.instance, tgBot);
     tgBot.addNewMessageEventHandler(this.onTelegramMessage);
     tgBot.addEditedMessageEventHandler(this.onTelegramEditMessage);
-    oicq.on('notice.friend.recall', this.onQqFriendRecall);
-    oicq.on('notice.group.recall', this.onQqGroupRecall);
+    // tgUser.addDeletedMessageEventHandler(this.onTgDeletedMessage);
+    oicq.on('notice.friend.recall', this.onQqRecall);
+    oicq.on('notice.group.recall', this.onQqRecall);
   }
 
   private onTelegramMessage = async (message: Api.Message) => {
@@ -39,14 +40,8 @@ export default class DeleteMessageController {
     return await this.onTelegramMessage(message);
   };
 
-  private onQqFriendRecall = async (event: FriendRecallEvent) => {
-    const pair = this.instance.forwardPairs.find(event.friend);
-    if (!pair) return;
-    await this.deleteMessageService.handleQqRecall(event, pair);
-  };
-
-  private onQqGroupRecall = async (event: GroupRecallEvent) => {
-    const pair = this.instance.forwardPairs.find(event.group);
+  private onQqRecall = async (event: FriendRecallEvent | GroupRecallEvent) => {
+    const pair = this.instance.forwardPairs.find('friend' in event ? event.friend : event.group);
     if (!pair) return;
     await this.deleteMessageService.handleQqRecall(event, pair);
   };

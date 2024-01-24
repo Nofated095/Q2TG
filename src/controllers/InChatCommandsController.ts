@@ -6,6 +6,8 @@ import OicqClient from '../client/OicqClient';
 import { Api } from 'telegram';
 import { Group } from 'icqq';
 import RecoverMessageHelper from '../helpers/RecoverMessageHelper';
+import flags from '../constants/flags';
+import { editFlags } from '../utils/flagControl';
 
 export default class InChatCommandsController {
   private readonly service: InChatCommandsService;
@@ -42,28 +44,38 @@ export default class InChatCommandsController {
         await this.service.poke(message, pair);
         return true;
       case '/forwardoff':
-        pair.enable = false;
+        pair.flags |= flags.DISABLE_Q2TG | flags.DISABLE_TG2Q;
         await message.reply({ message: '转发已禁用' });
         return true;
       case '/forwardon':
-        pair.enable = true;
+        pair.flags &= ~flags.DISABLE_Q2TG & ~flags.DISABLE_TG2Q;
         await message.reply({ message: '转发已启用' });
         return true;
       case '/disable_qq_forward':
-        pair.disableQ2TG = true;
+        pair.flags |= flags.DISABLE_Q2TG;
         await message.reply({ message: 'QQ->TG已禁用' });
         return true;
       case '/enable_qq_forward':
-        pair.disableQ2TG = false;
+        pair.flags &= ~flags.DISABLE_Q2TG;
         await message.reply({ message: 'QQ->TG已启用' });
         return true;
       case '/disable_tg_forward':
-        pair.disableTG2Q = true;
+        pair.flags |= flags.DISABLE_TG2Q;
         await message.reply({ message: 'TG->QQ已禁用' });
         return true;
       case '/enable_tg_forward':
-        pair.disableTG2Q = false;
+        pair.flags &= ~flags.DISABLE_TG2Q;
         await message.reply({ message: 'TG->QQ已启用' });
+        return true;
+      case '/flags':
+      case '/flag':
+        if (!message.senderId.eq(this.instance.owner)) {
+          await message.reply({ message: '权限不够' });
+          return true;
+        }
+        await message.reply({
+          message: await editFlags(messageParts, pair),
+        });
         return true;
       case '/refresh':
         if (this.instance.workMode !== 'personal' || !message.senderId?.eq(this.instance.owner)) return false;
