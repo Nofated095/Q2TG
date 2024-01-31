@@ -365,11 +365,6 @@ export default class ForwardService {
         }
       }
 
-      if (this.instance.workMode === 'personal' && event.message_type === 'group' && event.atme && !replyTo) {
-        message += `\n<b>@${this.instance.userMe.usernames?.length ?
-          this.instance.userMe.usernames[0].username :
-          this.instance.userMe.username}</b>`;
-      }
 
       // 发送消息
       const messageToSend: SendMessageParams = {
