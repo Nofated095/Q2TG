@@ -12,18 +12,22 @@ import db from './models/db';
     },
   });
   const log = getLogger('Main');
+
+  if (!process.versions.node.startsWith('18.')) {
+    log.warn('当前正在使用的 Node.JS 版本为', process.versions.node, '，未经测试');
+  }
+
   process.on('unhandledRejection', error => {
     log.error('UnhandledException: ', error);
   });
   const instanceEntries = await db.instance.findMany();
 
-  const instances = [] as Instance[];
   if (!instanceEntries.length) {
-    instances.push(await Instance.start(0));
+    await Instance.start(0);
   }
   else {
     for (const instanceEntry of instanceEntries) {
-      instances.push(await Instance.start(instanceEntry.id));
+      await Instance.start(instanceEntry.id);
     }
   }
 

@@ -25,8 +25,11 @@ import HugController from '../controllers/HugController';
 import QuotLyController from '../controllers/QuotLyController';
 import MiraiSkipFilterController from '../controllers/MiraiSkipFilterController';
 import env from './env';
+import AliveCheckController from '../controllers/AliveCheckController';
 
 export default class Instance {
+  public static readonly instances: Instance[] = [];
+
   private _owner = 0;
   private _isSetup = false;
   private _workMode = '';
@@ -57,6 +60,7 @@ export default class Instance {
   private hugController: HugController;
   private quotLyController: QuotLyController;
   private miraiSkipFilterController: MiraiSkipFilterController;
+  private aliveCheckController: AliveCheckController;
 
   private constructor(public readonly id: number) {
     this.log = getLogger(`Instance - ${this.id}`);
@@ -150,6 +154,7 @@ export default class Instance {
       this.oicqErrorNotifyController = new OicqErrorNotifyController(this, this.oicq);
       this.requestController = new RequestController(this, this.tgBot, this.oicq);
       this.configController = new ConfigController(this, this.tgBot, this.oicq);
+      this.aliveCheckController = new AliveCheckController(this, this.tgBot, this.oicq);
       this.deleteMessageController = new DeleteMessageController(this, this.tgBot, this.oicq);
       this.miraiSkipFilterController = new MiraiSkipFilterController(this, this.tgBot, this.oicq);
       this.inChatCommandsController = new InChatCommandsController(this, this.tgBot, this.oicq);
@@ -170,6 +175,7 @@ export default class Instance {
 
   public static async start(instanceId: number, botToken?: string) {
     const instance = new this(instanceId);
+    Instance.instances.push(instance);
     await instance.login(botToken);
     return instance;
   }
