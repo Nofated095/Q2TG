@@ -6,7 +6,6 @@ import { Api } from 'telegram';
 export default class AliveCheckController {
   constructor(private readonly instance: Instance,
               private readonly tgBot: Telegram,
-              private readonly tgUser: Telegram,
               private readonly oicq: OicqClient) {
     tgBot.addNewMessageEventHandler(this.handleMessage);
   }
@@ -33,20 +32,6 @@ export default class AliveCheckController {
     for (const instance of instances) {
       const oicq = instance.oicq;
       const tgBot = instance.tgBot;
-      const tgUser = instance.tgUser;
-
-      const tgUserName = (tgUser.me.username || tgUser.me.usernames.length) ?
-        '@' + (tgUser.me.username || tgUser.me.usernames[0].username) : tgUser.me.firstName;
-      messageParts.push([
-        `Instance #${instance.id}`,
-
-        `QQ <code>${instance.qqUin}</code>\t` +
-        `${boolToStr(oicq.isOnline())}\t${oicq.stat.msg_cnt_per_min} msg/min`,
-
-        `TG @${tgBot.me.username}\t${boolToStr(tgBot.isOnline)}`,
-
-        `TG User ${tgUserName}\t${boolToStr(tgBot.isOnline)}`,
-      ].join('\n'));
     }
 
     return messageParts.join('\n\n');
