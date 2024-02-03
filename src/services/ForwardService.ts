@@ -44,6 +44,7 @@ import ReplyKeyboardHide = Api.ReplyKeyboardHide;
 import env from '../models/env';
 import { CustomFile } from 'telegram/client/uploads';
 import flags from '../constants/flags';
+import BigInteger from 'big-integer';
 
 const NOT_CHAINABLE_ELEMENTS = ['flash', 'record', 'video', 'location', 'share', 'json', 'xml', 'poke'];
 
@@ -331,7 +332,6 @@ export default class ForwardService {
         }
       }
       message = message.trim();
-      message = messageHeader + (message && messageHeader ? '\n' : '') + message;
 
       // 处理回复
       if (event.source) {
@@ -366,28 +366,66 @@ export default class ForwardService {
       }
 
 
+      let richHeaderUsed = false;
       // 发送消息
       const messageToSend: SendMessageParams = {
         forceDocument: forceDocument as any, // 恼
       };
-      message && (messageToSend.message = message);
       if (files.length === 1) {
         messageToSend.file = files[0];
       }
       else if (files.length) {
         messageToSend.file = files;
       }
+      else if ((pair.flags | this.instance.flags) & flags.RICH_HEADER) {
+        // 没有文件时才能显示链接预览
+        richHeaderUsed = true;
+        const url = new URL('https://q2tg-header.clansty.workers.dev');
+        url.searchParams.set('name', sender);
+        url.searchParams.set('title', 'title' in event.sender ? event.sender.title : '');
+        url.searchParams.set('role', 'role' in event.sender ? event.sender.role : '');
+        url.searchParams.set('id', event.sender.user_id.toString());
+        // https://github.com/tdlib/td/blob/437c2d0c6e0ad104022d5ad86ddc8aedc41cb7a8/td/telegram/MessageContent.cpp#L2575
+        // https://github.com/tdlib/td/blob/437c2d0c6e0ad104022d5ad86ddc8aedc41cb7a8/td/generate/scheme/telegram_api.tl#L1841
+        // https://github.com/gram-js/gramjs/pull/633
+        messageToSend.file = new Api.InputMediaWebPage({
+          url: url.toString(),
+          forceSmallMedia: true,
+          optional: true,
+        });
+        messageToSend.linkPreview = { showAboveText: true };
+      }
+
+      if (!richHeaderUsed) {
+        message = messageHeader + (message && messageHeader ? '\n' : '') + message;
+      }
+      message && (messageToSend.message = message);
+
       buttons.length && (messageToSend.buttons = _.chunk(buttons, 3));
       replyTo && (messageToSend.replyTo = replyTo);
 
-      const tgMessage = await pair.tg.sendMessage(messageToSend);
+      let tgMessage: Api.Message;
+      try {
+        tgMessage = await pair.tg.sendMessage(messageToSend);
+      }
+      catch (e) {
+        if (richHeaderUsed) {
+          this.log.warn('Rich Header 发送错误', messageToSend.file, e);
+          delete messageToSend.file;
+          delete messageToSend.linkPreview;
+          message = messageHeader + (message && messageHeader ? '\n' : '') + message;
+          message && (messageToSend.message = message);
+          tgMessage = await pair.tg.sendMessage(messageToSend);
+        }
+        else throw e;
+      }
 
       if (this.instance.workMode === 'personal' && event.message_type === 'group' && event.atall) {
         await tgMessage.pin({ notify: false });
       }
 
       tempFiles.forEach(it => it.cleanup());
-      return tgMessage;
+      return { tgMessage, richHeaderUsed };
     }
     catch (e) {
       this.log.error('从 QQ 到 TG 的消息转发失败', e);
@@ -396,11 +434,12 @@ export default class ForwardService {
       }
       catch {
       }
-      return null;
+      return {};
     }
   }
 
   public async forwardFromTelegram(message: Api.Message, pair: Pair): Promise<Array<QQMessageSent>> {
+    // console.log(message);
     try {
       const tempFiles: FileResult[] = [];
       let chain: Sendable = [];
@@ -415,7 +454,7 @@ export default class ForwardService {
           '') +
         ': \n';
       if ((pair.flags | this.instance.flags) & flags.COLOR_EMOJI_PREFIX) {
-        messageHeader = emoji.color(message.senderId.toJSNumber()) + messageHeader;
+        messageHeader = emoji.tgColor((message.sender as Api.User)?.color || message.senderId.toJSNumber()) + messageHeader;
       }
       if (message.photo instanceof Api.Photo ||
         // stickers 和以文件发送的图片都是这个
