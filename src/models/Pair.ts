@@ -11,12 +11,12 @@ const log = getLogger('ForwardPair');
 export class Pair {
   // 群成员的 tg 账号对应它对应的 QQ 账号获取到的 Group 对象
   // 只有群组模式有效
-  public readonly instanceMapForTg = {} as { [tgUserId: string]: Group };
+//  public readonly instanceMapForTg = {} as { [tgUserId: string]: Group };
 
   constructor(
     public readonly qq: Friend | Group,
     private _tg: TelegramChat,
-    public readonly tgUser: TelegramChat,
+ //   public readonly tgUser: TelegramChat,
     public dbId: number,
     private _flags: number,
   ) {

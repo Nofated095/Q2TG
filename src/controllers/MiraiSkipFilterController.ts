@@ -6,7 +6,7 @@ import { GroupMessageEvent, MiraiElem, PrivateMessageEvent } from 'icqq';
 export default class {
   constructor(private readonly instance: Instance,
               private readonly tgBot: Telegram,
-              private readonly tgUser: Telegram,
+//              private readonly tgUser: Telegram,
               private readonly qqBot: OicqClient) {
     qqBot.addNewMessageEventHandler(this.onQqMessage);
   }
