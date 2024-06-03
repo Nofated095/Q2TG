@@ -35,7 +35,7 @@ export default class ForwardController {
     oicq.on('notice.friend.poke', this.onQqPoke);
     oicq.on('notice.group.poke', this.onQqPoke);
     tgBot.addNewMessageEventHandler(this.onTelegramMessage);
-    tgUser.addNewMessageEventHandler(this.onTelegramUserMessage);
+//    tgUser.addNewMessageEventHandler(this.onTelegramUserMessage);
     tgBot.addEditedMessageEventHandler(this.onTelegramMessage);
     instance.workMode === 'group' && tgBot.addChannelParticipantEventHandler(this.onTelegramParticipant);
   }
