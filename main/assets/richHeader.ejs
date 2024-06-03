@@ -1,0 +1,135 @@
+<html lang="zh">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <% const now = new Date() %>
+    <meta property="og:image"
+          content="https://q1.qlogo.cn/g?b=qq&nk=<%= userId %>&s=0&time=<%= now.getFullYear() %>-<%= now.getMonth() %>-<%= now.getDate() %>"/>
+    <% if (!!title) { %>
+        <meta property="og:site_name" content="「<%= title %>」"/>
+    <% }else { %>
+        <meta property="og:site_name" content="<%= role %>"/>
+    <% } %>
+    <meta property="og:title" content="<%= name %>"/>
+    <title>群成员：<%= name %></title>
+    <style>
+      html, body {
+        padding: 0;
+        margin: 0;
+        color: #303133;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      #app {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+      }
+
+      #avatar, #card {
+        width: 100%;
+        max-width: 500px;
+      }
+
+      #card {
+        padding: 0 20px;
+        line-height: 1.8em;
+      }
+
+      .badge {
+        border-radius: 0.5em;
+        color: #fff;
+        padding: 0 0.2em;
+      }
+
+      .badge-owner {
+        background-color: #FDCE3A !important;
+      }
+
+      .badge-admin {
+        background-color: #2FE1D8 !important;
+      }
+
+      .badge-member {
+        background-color: #ADB5CA;
+      }
+
+      .badge-hasTitle {
+        background-color: #D88BFF;
+      }
+
+      .secondary {
+        color: #606266;
+        font-size: small;
+      }
+
+      .detailItem {
+        font-size: smaller;
+        margin-top: 0.5em;
+      }
+
+      @media screen and (min-width: 900px) {
+        #app {
+          flex-direction: row;
+          height: 100%;
+        }
+
+        #avatar {
+          width: 400px;
+        }
+
+        #card {
+          width: fit-content;
+        }
+      }
+    </style>
+</head>
+<body>
+<div id="app">
+    <img id="avatar" src="https://q1.qlogo.cn/g?b=qq&nk=<%= userId %>&s=0" alt="头像">
+    <div id="card">
+        <div>
+            <span class="badge badge-<%= role %> <%= title && 'badge-hasTitle' %>"><%= title || role %></span>
+            <%= name %>
+        </div>
+        <% if(nickname !== name) { %>
+            <div class="secondary"><%= nickname %></div>
+        <% } %>
+        <div class="secondary"><%= userId %>
+            <% if(qid){ %>
+                <span style="padding-left: 1em">QID: <%= qid %></span>
+            <% } %>
+            <% if(email){ %>
+                <span style="padding-left: 1em"><%= email %></span>
+            <% } %>
+        </div>
+        <% if(location) { %>
+            <div class="secondary"><%= location %></div>
+        <% } %>
+        <% if(birthday) { %>
+            <div class="detailItem">
+                <div class="secondary">生日</div>
+                <%= birthday %>
+            </div>
+        <% } %>
+        <div class="detailItem">
+            <div class="secondary">加入时间</div>
+            <%= joinTime %>
+        </div>
+        <div class="detailItem">
+            <div class="secondary">上次发言时间</div>
+            <%= lastSentTime %>
+        </div>
+        <div class="detailItem">
+            <div class="secondary">注册时间</div>
+            <%= regTime %>
+        </div>
+    </div>
+</div>
+</body>
+</html>

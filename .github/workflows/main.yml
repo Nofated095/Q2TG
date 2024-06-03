@@ -46,3 +46,5 @@ jobs:
           platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          secrets: |
+            "npmrc=//npm.pkg.github.com/:_authToken=${{ secrets.GPR_TOKEN }}"

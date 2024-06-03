@@ -12,23 +12,26 @@ ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 WORKDIR /app
 
-FROM base AS build-env
+FROM base AS build
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt,sharing=locked \
   apt update && apt-get --no-install-recommends install -y \
     python3 build-essential pkg-config \
     libpixman-1-dev libcairo2-dev libpango1.0-dev libgif-dev libjpeg62-turbo-dev libpng-dev librsvg2-dev libvips-dev
-COPY package.json pnpm-lock.yaml /app/
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml /app/
+COPY patches /app/patches
+COPY main/package.json /app/main/
 
-FROM build-env AS prod-deps
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store,sharing=locked pnpm install --prod --frozen-lockfile
-
-FROM build-env AS build
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store,sharing=locked pnpm install --frozen-lockfile
-COPY src tsconfig.json /app/
-COPY prisma /app/
-RUN pnpm exec prisma generate
-RUN pnpm run build
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store,sharing=locked \
+    --mount=type=secret,id=npmrc,target=/root/.npmrc \
+    pnpm install --frozen-lockfile
+COPY main/src main/tsconfig.json /app/main/
+COPY main/prisma /app/main/
+RUN cd main && pnpm exec prisma generate
+RUN cd main && pnpm run build
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store,sharing=locked \
+    --mount=type=secret,id=npmrc,target=/root/.npmrc \
+    pnpm deploy --filter=q2tg-main --prod deploy
 
 FROM debian:bookworm-slim AS tgs-to-gif-build
 ADD https://github.com/conan-io/conan/releases/download/1.61.0/conan-ubuntu-64.deb /tmp/conan.deb
@@ -44,17 +47,28 @@ RUN conan install .
 RUN sed -i 's/\${CONAN_LIBS}/z/g' CMakeLists.txt
 RUN cmake CMakeLists.txt && make
 
+FROM base AS build-front
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml /app/
+COPY patches /app/patches
+COPY ui/package.json /app/ui/
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store,sharing=locked pnpm install --frozen-lockfile
+COPY ui/index.html ui/tsconfig.json ui/vite.config.ts /app/ui/
+COPY ui/src /app/ui/src
+RUN cd ui && pnpm run build
+
 FROM base
-COPY assets /app/
 
 COPY --from=tgs-to-gif-build /app/bin/tgs_to_gif /usr/local/bin/tgs_to_gif
 ENV TGS_TO_GIF=/usr/local/bin/tgs_to_gif
 
-COPY package.json pnpm-lock.yaml /app/
-COPY --from=prod-deps /app/node_modules /app/node_modules
-COPY prisma /app/
+COPY main/assets /app/assets
+
+COPY --from=build /app/deploy /app
+COPY main/prisma /app/
 RUN pnpm exec prisma generate
-COPY --from=build /app/build /app/build
+COPY --from=build-front /app/ui/dist /app/front
+ENV UI_PATH=/app/front
 
 ENV DATA_DIR=/app/data
+EXPOSE 8080
 CMD pnpm start
